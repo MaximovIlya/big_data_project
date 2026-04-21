@@ -1,0 +1,11 @@
+[MESSAGES CONTROL]
+# E0401: pyspark/streamlit not installed locally but available on cluster
+disable=import-error
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-locals=25
+max-args=7
+max-positional-arguments=7

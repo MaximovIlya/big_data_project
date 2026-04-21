@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+.claude/
+venv/
+.agents/
+data/sf_incidents.csv
+skills-lock.json
+
+
