@@ -1,8 +1,10 @@
 #!/bin/bash
-# Stage IV: Visualization — Streamlit dashboard
-# Reads results from output/ and serves an interactive app
+# Stage IV: Visualization — Superset export + Streamlit dashboard
 
 set -e
+
+echo "=== Stage IV: Superset Export ==="
+python scripts/stage4_superset.py
 
 echo "=== Stage IV: Streamlit Dashboard ==="
 
