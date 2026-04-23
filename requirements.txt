@@ -3,3 +3,5 @@ pyspark
 pandas
 streamlit
 openpyxl
+matplotlib
+scikit-learn

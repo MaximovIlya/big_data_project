@@ -176,6 +176,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+CLAUDE.md
 .claude/
 venv/
 .agents/

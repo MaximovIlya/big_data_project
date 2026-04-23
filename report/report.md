@@ -28,10 +28,10 @@ This project implements an end-to-end big data pipeline to analyze the San Franc
 | Property | Value |
 |---|---|
 | Source | San Francisco Open Data / Kaggle |
-| Records | ~800,000+ rows |
+| Records | 796,456 rows |
 | Columns | 35 |
-| File Format | CSV (~500 MB) |
-| Time Range | January 2018 – Present |
+| File Format | CSV (412.9 MB in memory) |
+| Time Range | 2018-01-01 – 2023-11-24 |
 | Update Frequency | Daily |
 
 ### 2.2 Key Columns
@@ -54,19 +54,19 @@ This project implements an end-to-end big data pipeline to analyze the San Franc
 
 The `Incident Category` field contains 60+ distinct values. For classification purposes, we retained the top 10 most frequent categories and grouped all remaining categories into an "Other" class, resulting in 11 classes total.
 
-| Rank | Category | Approx. Count |
+| Rank | Category | Count |
 |---|---|---|
-| 1 | Larceny Theft | ~200,000 |
-| 2 | Other Miscellaneous | ~80,000 |
-| 3 | Non-Criminal | ~70,000 |
-| 4 | Assault | ~55,000 |
-| 5 | Motor Vehicle Theft | ~45,000 |
-| 6 | Malicious Mischief | ~40,000 |
-| 7 | Burglary | ~35,000 |
-| 8 | Lost Property | ~30,000 |
-| 9 | Drug Offense | ~25,000 |
-| 10 | Fraud | ~22,000 |
-| — | Other (all remaining) | ~100,000+ |
+| 1 | Larceny Theft | 242,034 |
+| 2 | Other Miscellaneous | 54,225 |
+| 3 | Malicious Mischief | 53,860 |
+| 4 | Assault | 48,501 |
+| 5 | Non-Criminal | 46,987 |
+| 6 | Burglary | 44,390 |
+| 7 | Motor Vehicle Theft | 42,555 |
+| 8 | Recovered Vehicle | 31,927 |
+| 9 | Fraud | 25,926 |
+| 10 | Lost Property | 23,194 |
+| — | Other (39 remaining categories) | 182,857 |
 
 ### 2.4 Data Quality
 
@@ -324,15 +324,17 @@ Features are scaled with `MinMaxScaler` (instead of `StandardScaler`) to ensure 
 
 **Local prototype results (scikit-learn, 10% sample):**
 
-The following results were obtained locally on a 10% stratified sample using scikit-learn as a prototype before the full Spark run:
+The following results were obtained locally on a 10% stratified sample (52,722 train / 22,596 test) using scikit-learn. Dataset: 753,186 rows after dropping NaN coordinates, 11 classes, 7 features.
 
 | Model | Accuracy | Weighted F1 |
 |---|---|---|
-| Random Forest | *(run notebook 03)* | *(run notebook 03)* |
-| Linear SVC | *(run notebook 03)* | *(run notebook 03)* |
-| Naive Bayes | *(run notebook 03)* | *(run notebook 03)* |
+| Random Forest (n=100, depth=10) | **0.3656** | **0.2550** |
+| Linear SVC (C=0.1) | 0.3315 | 0.2286 |
+| Naive Bayes (alpha=1.0) | 0.2915 | 0.1316 |
 
-> Note: Local prototype results use `StandardScaler`/`MinMaxScaler` with scikit-learn implementations. Full Spark results on the complete dataset are expected to differ (and improve) due to more training data.
+**Interpretation:** The low metrics reflect severe class imbalance — Larceny Theft alone accounts for ~30% of all records. The Random Forest mostly predicts "Larceny Theft" (recall 0.78) and "Other" (recall 0.57), with near-zero recall for all other categories. This is expected behavior for a baseline model on imbalanced data without resampling. Full Spark MLlib results on the complete dataset with 5-fold cross-validated hyperparameter tuning are expected to yield higher and more balanced scores.
+
+> Feature importance (Random Forest): `Longitude` and `Latitude` are the most predictive features, confirming that crime type is strongly geographically clustered. `hour` and `year` rank next.
 
 ### 6.6 Sample Predictions
 
