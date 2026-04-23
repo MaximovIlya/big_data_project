@@ -347,7 +347,18 @@ For each model, 5 sample records from the test set are saved to `output/predicti
 
 ## 7. Stage IV — Visualization
 
-### 7.1 Streamlit Dashboard
+### 7.1 Superset Export
+
+`scripts/stage4_superset.py` loads all 8 EDA CSV outputs into a local SQLite database (`output/sf_incidents_eda.db`) and generates a Superset v1 export ZIP (`output/superset_export/sf_incidents_dashboard.zip`) containing:
+
+- Database connection YAML (SQLite URI)
+- 8 dataset YAMLs (one per EDA insight)
+- 8 chart YAMLs (bar, line, and heatmap chart types)
+- Dashboard YAML with a 2-column grid layout
+
+The ZIP can be imported directly via **Superset UI → Dashboards → Import dashboard** without any manual configuration. No running Superset instance is required to generate the export.
+
+### 7.2 Streamlit Dashboard
 
 The dashboard (`scripts/stage4_app.py`) consists of 5 pages accessible via the sidebar:
 
@@ -383,8 +394,9 @@ bigdata-final-project/
 │   ├── stage2_eda.py              # PySpark EDA (8 insights, pylint 10/10)
 │   ├── stage3.sh                  # Spark ML training (YARN)
 │   ├── stage3_ml.py               # PySpark MLlib pipeline (pylint 10/10)
-│   ├── stage4.sh                  # Streamlit launch
+│   ├── stage4.sh                  # Superset export + Streamlit launch
 │   ├── stage4_app.py              # Streamlit 5-page dashboard
+│   ├── stage4_superset.py         # Superset v1 export ZIP generator
 │   └── postprocess.sh             # Output summary
 ├── notebooks/
 │   ├── 01_exploration.ipynb       # Schema, nulls, distributions (pandas)
