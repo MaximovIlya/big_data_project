@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Context Navigation (Memory System)
+
+### Vault location
+`C:\ai_brain` — Obsidian vault with persistent project memory.
+
+### 3-Layer Query Rule
+1. **First:** query `graphify-out/graph.json` (if exists) to understand code structure
+2. **Second:** read `C:\ai_brain\bigdata-final-project\` for decisions, progress, pipeline notes
+3. **Third:** read raw source files only when editing or when layers 1-2 don't answer
+
+### Session commands
+- `/resume` — loads recent logs + decisions.md + progress.md, summarizes state
+- `/save` — creates session log, updates progress.md, adds wikilinks
+
 ## Project Overview
 
 End-to-end big data pipeline analyzing SF Police Department Incident Reports (2018–present). Goal: predict `incident_category` (multi-class classification) from time, location, and contextual features. Dataset: `data/sf_incidents.csv` (500k+ rows, download from Kaggle).
@@ -103,3 +117,13 @@ models/
   linear_svc/
   naive_bayes/
 ```
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
