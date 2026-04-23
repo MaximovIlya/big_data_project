@@ -4,7 +4,7 @@
 set -e
 
 echo "=== Stage IV: Superset Export ==="
-python scripts/stage4_superset.py
+python3 scripts/stage4_superset.py
 
 echo "=== Stage IV: Streamlit Dashboard ==="
 

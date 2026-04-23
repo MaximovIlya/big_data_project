@@ -84,6 +84,16 @@ echo "CSV loaded into staging table."
 # Insert into main table with type casting
 # Datetime format in dataset: '2023/03/13 11:41:00 PM'
 psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" <<'SQL'
+CREATE OR REPLACE FUNCTION safe_ts(val TEXT, fmt TEXT) RETURNS TIMESTAMP AS $$
+BEGIN
+  IF val IS NULL OR val = '' THEN RETURN NULL; END IF;
+  RETURN TO_TIMESTAMP(val, fmt);
+EXCEPTION WHEN others THEN RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+SET lc_time = 'C';
+
 INSERT INTO sf_incidents (
     row_id, incident_datetime, incident_date, incident_time,
     incident_year, incident_day_of_week, report_datetime,
@@ -97,12 +107,12 @@ INSERT INTO sf_incidents (
 )
 SELECT
     NULLIF(row_id, '')::BIGINT,
-    TO_TIMESTAMP(NULLIF(incident_datetime, ''), 'YYYY/MM/DD HH:MI:SS AM'),
+    safe_ts(NULLIF(incident_datetime, ''), 'YYYY/MM/DD HH:MI:SS AM'),
     TO_DATE(NULLIF(incident_date, ''), 'YYYY/MM/DD'),
     NULLIF(incident_time, '')::TIME,
     NULLIF(incident_year, '')::SMALLINT,
     NULLIF(incident_day_of_week, ''),
-    TO_TIMESTAMP(NULLIF(report_datetime, ''), 'YYYY/MM/DD HH:MI:SS AM'),
+    safe_ts(NULLIF(report_datetime, ''), 'YYYY/MM/DD HH:MI:SS AM'),
     NULLIF(incident_id, '')::BIGINT,
     NULLIF(incident_number, '')::BIGINT,
     NULLIF(cad_number, '')::BIGINT,
@@ -129,6 +139,7 @@ WHERE NULLIF(row_id, '') IS NOT NULL
   AND NULLIF(incident_year, '')::SMALLINT >= 2018
 ON CONFLICT (row_id) DO NOTHING;
 
+DROP FUNCTION IF EXISTS safe_ts;
 DROP TABLE sf_incidents_staging;
 SQL
 
