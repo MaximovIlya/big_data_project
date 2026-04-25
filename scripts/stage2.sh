@@ -23,6 +23,7 @@ spark-submit \
     --num-executors 4 \
     --conf "spark.sql.shuffle.partitions=200" \
     --conf "spark.sql.adaptive.enabled=true" \
+    --conf "spark.sql.warehouse.dir=hdfs:///user/$(whoami)/spark-warehouse" \
     scripts/stage2_eda.py \
     --hive-db "$HIVE_DB" \
     --hdfs-raw "$HDFS_RAW" \

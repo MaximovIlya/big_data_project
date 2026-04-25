@@ -19,6 +19,7 @@ spark-submit \
     --conf "spark.sql.shuffle.partitions=200" \
     --conf "spark.sql.adaptive.enabled=true" \
     --conf "spark.driver.maxResultSize=4g" \
+    --conf "spark.sql.warehouse.dir=hdfs:///user/$(whoami)/spark-warehouse" \
     --conf "spark.serializer=org.apache.spark.serializer.KryoSerializer" \
     scripts/stage3_ml.py \
     --hive-db "$HIVE_DB" \

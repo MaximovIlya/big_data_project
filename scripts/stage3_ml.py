@@ -43,7 +43,7 @@ def load_and_prepare(spark, hive_db, top_n):
     """Load data from Hive, engineer features, bucket rare categories."""
     spark.sql(f"USE {hive_db}")
 
-    df = spark.sql("""
+    incidents_df = spark.sql("""
         SELECT
             incident_category,
             HOUR(incident_datetime)                     AS hour,
@@ -62,7 +62,7 @@ def load_and_prepare(spark, hive_db, top_n):
 
     # Keep only top-N categories; label the rest "Other"
     top_cats = (
-        df.groupBy("incident_category")
+        incidents_df.groupBy("incident_category")
         .count()
         .orderBy(F.desc("count"))
         .limit(top_n)
@@ -72,16 +72,16 @@ def load_and_prepare(spark, hive_db, top_n):
     )
     top_cats_set = set(top_cats)
 
-    df = df.withColumn(
+    incidents_df = incidents_df.withColumn(
         "label_raw",
         F.when(F.col("incident_category").isin(top_cats_set), F.col("incident_category"))
         .otherwise("Other"),
     )
 
     print(f"Label distribution (top {top_n} + Other):")
-    df.groupBy("label_raw").count().orderBy(F.desc("count")).show(top_n + 2)
+    incidents_df.groupBy("label_raw").count().orderBy(F.desc("count")).show(top_n + 2)
 
-    return df
+    return incidents_df
 
 
 def build_feature_pipeline():
@@ -134,18 +134,18 @@ def train_random_forest(train_df, feature_stages, cv_folds):
     """Train Random Forest with 27-combination grid search + k-fold CV."""
     print("\n=== Model 1: Random Forest ===")
 
-    rf = RandomForestClassifier(
+    rf_classifier = RandomForestClassifier(
         labelCol="label",
         featuresCol="features",
         seed=42,
     )
-    pipeline = Pipeline(stages=feature_stages + [rf])
+    pipeline = Pipeline(stages=feature_stages + [rf_classifier])
 
     param_grid = (
         ParamGridBuilder()
-        .addGrid(rf.numTrees, [50, 100, 200])      # 3
-        .addGrid(rf.maxDepth, [5, 10, 15])          # 3
-        .addGrid(rf.maxBins, [16, 32, 64])          # 3  → 27 total
+        .addGrid(rf_classifier.numTrees, [50, 100, 200])      # 3
+        .addGrid(rf_classifier.maxDepth, [5, 10, 15])          # 3
+        .addGrid(rf_classifier.maxBins, [16, 32, 64])          # 3  → 27 total
         .build()
     )
     print(f"RF grid search: {len(param_grid)} hyperparameter combinations")
@@ -155,7 +155,7 @@ def train_random_forest(train_df, feature_stages, cv_folds):
         predictionCol="prediction",
         metricName="weightedFMeasure",
     )
-    cv = CrossValidator(
+    cross_validator = CrossValidator(
         estimator=pipeline,
         estimatorParamMaps=param_grid,
         evaluator=evaluator,
@@ -163,7 +163,7 @@ def train_random_forest(train_df, feature_stages, cv_folds):
         seed=42,
     )
 
-    cv_model = cv.fit(train_df)
+    cv_model = cross_validator.fit(train_df)
     best_model = cv_model.bestModel
 
     print(f"Best RF params: numTrees={best_model.stages[-1].getNumTrees}, "
@@ -194,7 +194,7 @@ def train_linear_svc(train_df, feature_stages, cv_folds):
         predictionCol="prediction",
         metricName="weightedFMeasure",
     )
-    cv = CrossValidator(
+    cross_validator = CrossValidator(
         estimator=pipeline,
         estimatorParamMaps=param_grid,
         evaluator=evaluator,
@@ -202,7 +202,7 @@ def train_linear_svc(train_df, feature_stages, cv_folds):
         seed=42,
     )
 
-    cv_model = cv.fit(train_df)
+    cv_model = cross_validator.fit(train_df)
     best_model = cv_model.bestModel
 
     best_svc = best_model.stages[-1].models[0]  # first OvR sub-model
@@ -224,16 +224,16 @@ def train_naive_bayes(train_df, feature_stages, cv_folds):
     nb_feature_stages = feature_stages[:-1]  # drop StandardScaler
     mm_scaler = MinMaxScaler(inputCol="features_raw", outputCol="features")
 
-    nb = NaiveBayes(
+    nb_classifier = NaiveBayes(
         labelCol="label",
         featuresCol="features",
         modelType="multinomial",
     )
-    pipeline = Pipeline(stages=nb_feature_stages + [mm_scaler, nb])
+    pipeline = Pipeline(stages=nb_feature_stages + [mm_scaler, nb_classifier])
 
     param_grid = (
         ParamGridBuilder()
-        .addGrid(nb.smoothing, [0.1, 0.5, 1.0, 1.5, 2.0])  # 5 values
+        .addGrid(nb_classifier.smoothing, [0.1, 0.5, 1.0, 1.5, 2.0])  # 5 values
         .build()
     )
     print(f"NB grid search: {len(param_grid)} hyperparameter combinations")
@@ -243,7 +243,7 @@ def train_naive_bayes(train_df, feature_stages, cv_folds):
         predictionCol="prediction",
         metricName="weightedFMeasure",
     )
-    cv = CrossValidator(
+    cross_validator = CrossValidator(
         estimator=pipeline,
         estimatorParamMaps=param_grid,
         evaluator=evaluator,
@@ -251,7 +251,7 @@ def train_naive_bayes(train_df, feature_stages, cv_folds):
         seed=42,
     )
 
-    cv_model = cv.fit(train_df)
+    cv_model = cross_validator.fit(train_df)
     best_model = cv_model.bestModel
 
     print(f"Best NB params: smoothing={best_model.stages[-1].getSmoothing()}")
@@ -260,7 +260,7 @@ def train_naive_bayes(train_df, feature_stages, cv_folds):
 
 
 def save_sample_predictions(test_df, model, label_indexer_model,
-                            predictions_dir, model_name, n=5):
+                            predictions_dir, model_name, num_samples=5):
     """Save n sample predictions (predicted vs actual) to CSV."""
     preds = model.transform(test_df)
 
@@ -275,9 +275,9 @@ def save_sample_predictions(test_df, model, label_indexer_model,
         .select("actual_category", "predicted_category",
                 "hour", "day_of_week", "police_district",
                 "latitude", "longitude")
-        .limit(n)
+        .limit(num_samples)
     )
-    sample.show(n, truncate=False)
+    sample.show(num_samples, truncate=False)
 
     out_path = os.path.join(predictions_dir, model_name)
     sample.coalesce(1).write.mode("overwrite").option("header", "true").csv(out_path)
@@ -293,9 +293,9 @@ def run_pipeline(args):
     os.makedirs(args.predictions_dir, exist_ok=True)
 
     # ── Data preparation ───────────────────────────────────────────────────
-    df = load_and_prepare(spark, args.hive_db, args.top_n_categories)
+    incidents_df = load_and_prepare(spark, args.hive_db, args.top_n_categories)
 
-    train_df, test_df = df.randomSplit([0.7, 0.3], seed=42)
+    train_df, test_df = incidents_df.randomSplit([0.7, 0.3], seed=42)
     train_df.cache()
     test_df.cache()
 
@@ -349,8 +349,8 @@ def run_pipeline(args):
     }
 
     summary_path = os.path.join(args.output_dir, "metrics_summary.json")
-    with open(summary_path, "w", encoding="utf-8") as fh:
-        json.dump(metrics, fh, indent=2)
+    with open(summary_path, "w", encoding="utf-8") as file_handle:
+        json.dump(metrics, file_handle, indent=2)
 
     print(f"\nMetrics summary saved to {summary_path}")
     print("\n=== Final Results ===")

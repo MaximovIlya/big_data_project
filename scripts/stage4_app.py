@@ -36,8 +36,8 @@ def load_metrics():
     path = os.path.join(METRICS_DIR, "metrics_summary.json")
     if not os.path.exists(path):
         return None
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+    with open(path, encoding="utf-8") as file_handle:
+        return json.load(file_handle)
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────

@@ -121,11 +121,11 @@ def build_sqlite(insights):
     con = sqlite3.connect(DB_PATH)
     for ins in insights:
         path = os.path.join(EDA_DIR, ins["key"])
-        df = load_csv_dir(path)
-        if df.empty:
+        insight_df = load_csv_dir(path)
+        if insight_df.empty:
             print(f"  [SKIP] {ins['key']} — no CSV found (run stage2 first)")
             continue
-        df.to_sql(ins["table"], con, if_exists="replace", index=False)
+        insight_df.to_sql(ins["table"], con, if_exists="replace", index=False)
         print(f"  [OK]   {ins['key']} → {len(df)} rows")
         loaded.append(ins)
     con.close()

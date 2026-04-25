@@ -153,8 +153,8 @@ def ensure_database(host, port, user, password, dbname):
 
 def run_sql_file(conn, path):
     """Execute a SQL file."""
-    with open(path, "r", encoding="utf-8") as fh:
-        ddl = fh.read()
+    with open(path, "r", encoding="utf-8") as file_handle:
+        ddl = file_handle.read()
     with conn.cursor() as cur:
         cur.execute(ddl)
     conn.commit()
@@ -167,9 +167,9 @@ def load_csv(conn, data_file):
         "COPY sf_incidents_staging FROM STDIN "
         "WITH (FORMAT CSV, HEADER, ENCODING 'UTF8')"
     )
-    with open(abs_path, "r", encoding="utf-8") as fh:
+    with open(abs_path, "r", encoding="utf-8") as file_handle:
         with conn.cursor() as cur:
-            cur.copy_expert(copy_sql, fh)
+            cur.copy_expert(copy_sql, file_handle)
     conn.commit()
     print("CSV loaded into staging table.")
 
