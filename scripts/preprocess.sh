@@ -50,6 +50,7 @@ done
 # ── Check Python packages ───────────────────────────────────────────────────
 python3 -c "import pyspark; print('  [OK] pyspark', pyspark.__version__)"
 python3 -c "import pandas; print('  [OK] pandas', pandas.__version__)"
-python3 -c "import streamlit; print('  [OK] streamlit', streamlit.__version__)"
+python3 -c "import streamlit; print('  [OK] streamlit', streamlit.__version__)" \
+    || echo "  [WARN] streamlit not found — stage4 dashboard will be skipped"
 
 echo "=== Pre-processing complete ==="
