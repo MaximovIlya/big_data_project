@@ -29,7 +29,7 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
         CREATE EXTERNAL TABLE incidents_raw (
             row_id                   BIGINT,
             incident_datetime        BIGINT,
-            incident_date            INT,
+            incident_date            BIGINT,
             incident_time            STRING,
             incident_year            INT,
             incident_day_of_week     STRING,
@@ -68,8 +68,8 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
             row_id,
             CAST(from_unixtime(incident_datetime / 1000)
                 AS TIMESTAMP) AS incident_datetime,
-            date_add(to_date('1970-01-01'), incident_date)
-                              AS incident_date,
+            CAST(from_unixtime(incident_date / 1000)
+                AS DATE)      AS incident_date,
             incident_time,
             incident_year,
             incident_day_of_week,
