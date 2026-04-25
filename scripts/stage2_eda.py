@@ -30,7 +30,7 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
             row_id                   BIGINT,
             incident_datetime        BIGINT,
             incident_date            BIGINT,
-            incident_time            STRING,
+            incident_time            BIGINT,
             incident_year            INT,
             incident_day_of_week     STRING,
             report_datetime          BIGINT,
@@ -39,7 +39,7 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
             cad_number               BIGINT,
             report_type_code         STRING,
             report_type_description  STRING,
-            filed_online             STRING,
+            filed_online             BOOLEAN,
             incident_code            INT,
             incident_category        STRING,
             incident_subcategory     STRING,
@@ -70,15 +70,17 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
                 AS TIMESTAMP) AS incident_datetime,
             CAST(from_unixtime(incident_date / 1000)
                 AS DATE)      AS incident_date,
-            incident_time,
+            CONCAT(
+                LPAD(CAST(incident_time / 3600000 AS INT), 2, '0'), ':',
+                LPAD(CAST((incident_time % 3600000) / 60000 AS INT), 2, '0')
+            )                 AS incident_time,
             incident_year,
             incident_day_of_week,
             CAST(from_unixtime(report_datetime / 1000)
                 AS TIMESTAMP) AS report_datetime,
             incident_id, incident_number, cad_number,
             report_type_code, report_type_description,
-            CASE WHEN lower(filed_online) = 'true' THEN TRUE ELSE FALSE END
-                AS filed_online,
+            filed_online,
             incident_code, incident_category, incident_subcategory,
             incident_description, resolution, intersection, cnn,
             police_district, analysis_neighborhood,
