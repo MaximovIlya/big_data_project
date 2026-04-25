@@ -21,10 +21,10 @@ def create_spark_session():
 
 def setup_hive_tables(spark, hive_db, hdfs_raw):
     """Create Hive database and tables from Sqoop Parquet output in HDFS."""
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {hive_db}")
+    spark.sql(f"DROP DATABASE IF EXISTS {hive_db} CASCADE")
+    spark.sql(f"CREATE DATABASE {hive_db}")
     spark.sql(f"USE {hive_db}")
 
-    spark.sql("DROP TABLE IF EXISTS incidents_raw")
     spark.sql(f"""
         CREATE EXTERNAL TABLE incidents_raw (
             row_id                   BIGINT,
@@ -59,7 +59,6 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
         LOCATION '{hdfs_raw}'
     """)
 
-    spark.sql("DROP TABLE IF EXISTS incidents_parquet")
     spark.sql("""
         CREATE TABLE incidents_parquet
         STORED AS PARQUET
@@ -91,7 +90,6 @@ def setup_hive_tables(spark, hive_db, hdfs_raw):
           AND longitude         IS NOT NULL
     """)
 
-    spark.sql("DROP VIEW IF EXISTS v_incident_summary")
     spark.sql("""
         CREATE VIEW v_incident_summary AS
         SELECT
