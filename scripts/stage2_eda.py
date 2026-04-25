@@ -19,6 +19,94 @@ def create_spark_session():
     )
 
 
+def setup_hive_tables(spark, hive_db, hdfs_raw):
+    """Create Hive database and tables from Sqoop Parquet output in HDFS."""
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS {hive_db}")
+    spark.sql(f"USE {hive_db}")
+
+    spark.sql("DROP TABLE IF EXISTS incidents_raw")
+    spark.sql(f"""
+        CREATE EXTERNAL TABLE incidents_raw (
+            row_id                   BIGINT,
+            incident_datetime        STRING,
+            incident_date            STRING,
+            incident_time            STRING,
+            incident_year            INT,
+            incident_day_of_week     STRING,
+            report_datetime          STRING,
+            incident_id              BIGINT,
+            incident_number          BIGINT,
+            cad_number               BIGINT,
+            report_type_code         STRING,
+            report_type_description  STRING,
+            filed_online             STRING,
+            incident_code            INT,
+            incident_category        STRING,
+            incident_subcategory     STRING,
+            incident_description     STRING,
+            resolution               STRING,
+            intersection             STRING,
+            cnn                      BIGINT,
+            police_district          STRING,
+            analysis_neighborhood    STRING,
+            supervisor_district      INT,
+            supervisor_district_2012 INT,
+            latitude                 DOUBLE,
+            longitude                DOUBLE,
+            point                    STRING
+        )
+        STORED AS PARQUET
+        LOCATION '{hdfs_raw}'
+    """)
+
+    spark.sql("DROP TABLE IF EXISTS incidents_parquet")
+    spark.sql("""
+        CREATE TABLE incidents_parquet
+        STORED AS PARQUET
+        TBLPROPERTIES ("parquet.compression"="SNAPPY")
+        AS
+        SELECT
+            row_id,
+            CAST(from_unixtime(CAST(incident_datetime AS BIGINT) / 1000)
+                AS TIMESTAMP) AS incident_datetime,
+            CAST(from_unixtime(CAST(incident_date AS BIGINT) / 1000)
+                AS DATE)      AS incident_date,
+            incident_time,
+            incident_year,
+            incident_day_of_week,
+            CAST(from_unixtime(CAST(report_datetime AS BIGINT) / 1000)
+                AS TIMESTAMP) AS report_datetime,
+            incident_id, incident_number, cad_number,
+            report_type_code, report_type_description,
+            CASE WHEN lower(filed_online) = 'true' THEN TRUE ELSE FALSE END
+                AS filed_online,
+            incident_code, incident_category, incident_subcategory,
+            incident_description, resolution, intersection, cnn,
+            police_district, analysis_neighborhood,
+            supervisor_district, supervisor_district_2012,
+            latitude, longitude
+        FROM incidents_raw
+        WHERE incident_category IS NOT NULL
+          AND latitude          IS NOT NULL
+          AND longitude         IS NOT NULL
+    """)
+
+    spark.sql("DROP VIEW IF EXISTS v_incident_summary")
+    spark.sql("""
+        CREATE VIEW v_incident_summary AS
+        SELECT
+            incident_category,
+            COUNT(*)                        AS total_incidents,
+            COUNT(DISTINCT police_district) AS districts_affected,
+            MIN(incident_datetime)          AS first_seen,
+            MAX(incident_datetime)          AS last_seen,
+            AVG(latitude)                   AS avg_lat,
+            AVG(longitude)                  AS avg_lon
+        FROM incidents_parquet
+        GROUP BY incident_category
+    """)
+
+
 def _save(df, output_dir, name):
     """Save a DataFrame as a single CSV part file."""
     path = os.path.join(output_dir, name)
@@ -189,10 +277,15 @@ def main():
     parser = argparse.ArgumentParser(description="SF Incidents EDA")
     parser.add_argument("--hive-db", default="sf_incidents_db")
     parser.add_argument("--output-dir", default="output/eda")
+    parser.add_argument("--hdfs-raw", default=None,
+                        help="HDFS path to Sqoop Parquet output; "
+                             "if set, recreates Hive tables before EDA")
     args = parser.parse_args()
 
     spark = create_spark_session()
     spark.sparkContext.setLogLevel("WARN")
+    if args.hdfs_raw:
+        setup_hive_tables(spark, args.hive_db, args.hdfs_raw)
     run_eda(spark, args.hive_db, args.output_dir)
     spark.stop()
 

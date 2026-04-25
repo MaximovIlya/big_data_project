@@ -6,16 +6,16 @@ set -e
 echo "=== Pre-processing: Environment Setup ==="
 
 # ── Configuration ──────────────────────────────────────────────────────────
-export PG_HOST="${PG_HOST:-localhost}"
+export PG_HOST="${PG_HOST:-hadoop-04.uni.innopolis.ru}"
 export PG_PORT="${PG_PORT:-5432}"
-export PG_DB="${PG_DB:-sf_incidents}"
-export PG_USER="${PG_USER:-postgres}"
-export PG_PASSWORD="${PG_PASSWORD:-postgres}"
+export PG_DB="${PG_DB:-team21_projectdb}"
+export PG_USER="${PG_USER:-team21}"
+export PG_PASSWORD="${PG_PASSWORD:-muYLyFnzeY4xZzcD}"
 export HDFS_BASE="${HDFS_BASE:-/user/$(whoami)/sf_incidents}"
-export HIVE_DB="${HIVE_DB:-sf_incidents_db}"
+export HIVE_DB="${HIVE_DB:-team21_projectdb}"
 export DATA_FILE="${DATA_FILE:-data/sf_incidents.csv}"
 export SPARK_MASTER="${SPARK_MASTER:-yarn}"
-export SPARK_DEPLOY_MODE="${SPARK_DEPLOY_MODE:-cluster}"
+export SPARK_DEPLOY_MODE="${SPARK_DEPLOY_MODE:-client}"
 
 # ── Validate data file exists ───────────────────────────────────────────────
 if [ ! -f "$DATA_FILE" ]; then

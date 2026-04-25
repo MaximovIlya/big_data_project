@@ -11,18 +11,8 @@ HDFS_RAW="$HDFS_BASE/raw"
 HIVE_DB="${HIVE_DB:-sf_incidents_db}"
 SPARK_MASTER="${SPARK_MASTER:-yarn}"
 
-# ── Step 1: Create Hive tables ─────────────────────────────────────────────
-echo "--- Step 1: Creating Hive tables ---"
-
-hive --hivevar hdfsloc="$HDFS_RAW" -f sql/create_hive_tables.hql
-
-echo "Hive tables created in database '$HIVE_DB'."
-
-# Verify table creation
-hive -e "USE $HIVE_DB; SHOW TABLES;"
-
-# ── Step 2: Run PySpark EDA ────────────────────────────────────────────────
-echo "--- Step 2: Running PySpark EDA ---"
+# ── Step 1: Run PySpark EDA (creates Hive tables + runs analysis) ──────────
+echo "--- Step 1: Running PySpark EDA (creates Hive tables + EDA) ---"
 
 spark-submit \
     --master "$SPARK_MASTER" \
@@ -35,6 +25,7 @@ spark-submit \
     --conf "spark.sql.adaptive.enabled=true" \
     scripts/stage2_eda.py \
     --hive-db "$HIVE_DB" \
+    --hdfs-raw "$HDFS_RAW" \
     --output-dir output/eda
 
 echo "=== Stage II complete. EDA results in output/eda/ ==="

@@ -37,11 +37,8 @@ CREATE EXTERNAL TABLE incidents_raw (
     longitude               DOUBLE,
     point                   STRING
 )
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
-LOCATION '${hdfsloc}'
-TBLPROPERTIES ("skip.header.line.count"="1");
+STORED AS PARQUET
+LOCATION '${hdfsloc}';
 
 
 -- Optimized PARQUET table with Snappy compression
@@ -56,12 +53,12 @@ TBLPROPERTIES ("parquet.compression"="SNAPPY")
 AS
 SELECT
     row_id,
-    CAST(incident_datetime AS TIMESTAMP)        AS incident_datetime,
-    CAST(incident_date AS DATE)                 AS incident_date,
+    CAST(FROM_UNIXTIME(CAST(incident_datetime AS BIGINT) DIV 1000) AS TIMESTAMP) AS incident_datetime,
+    CAST(FROM_UNIXTIME(CAST(incident_date AS BIGINT) DIV 1000) AS DATE)          AS incident_date,
     incident_time,
     incident_year,
     incident_day_of_week,
-    CAST(report_datetime AS TIMESTAMP)          AS report_datetime,
+    CAST(FROM_UNIXTIME(CAST(report_datetime AS BIGINT) DIV 1000) AS TIMESTAMP)  AS report_datetime,
     incident_id,
     incident_number,
     cad_number,
@@ -88,7 +85,8 @@ WHERE incident_category IS NOT NULL
 
 
 -- Summary stats view
-CREATE VIEW IF NOT EXISTS v_incident_summary AS
+DROP VIEW IF EXISTS v_incident_summary;
+CREATE VIEW v_incident_summary AS
 SELECT
     incident_category,
     COUNT(*)                    AS total_incidents,

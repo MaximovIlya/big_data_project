@@ -6,8 +6,8 @@ DROP TABLE IF EXISTS sf_incidents CASCADE;
 
 CREATE TABLE sf_incidents (
     row_id                   BIGINT           PRIMARY KEY,
-    incident_datetime        TIMESTAMP        NOT NULL,
-    incident_date            DATE             NOT NULL,
+    incident_datetime        TIMESTAMP,
+    incident_date            DATE,
     incident_time            TIME,
     incident_year            SMALLINT         NOT NULL CHECK (incident_year >= 2018),
     incident_day_of_week     VARCHAR(10)      NOT NULL,

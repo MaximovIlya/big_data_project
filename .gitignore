@@ -1,5 +1,23 @@
 # Graphify
-graphify-out/cache/
+graphify-out/
+scripts/graphify-out/
+.graphify_*.json
+.graphify_*.py
+.graphify_python
+.graphify_uncached.txt
+
+# Pipeline outputs (generated at runtime)
+output/eda/
+output/metrics/
+output/predictions/
+output/superset_export/
+output/sf_incidents_eda.db
+models/random_forest/
+models/linear_svc/
+models/naive_bayes/
+
+# Cluster manual (local reference only)
+IU Hadoop Cluster - Manual page.html
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
