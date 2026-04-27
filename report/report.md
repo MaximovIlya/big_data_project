@@ -263,11 +263,11 @@ All feature transformations are implemented as a PySpark MLlib `Pipeline`:
 
 | Metric | Value |
 |---|---|
-| Accuracy | *(run pipeline)* |
-| Weighted F1 | *(run pipeline)* |
-| Best `numTrees` | *(run pipeline)* |
-| Best `maxDepth` | *(run pipeline)* |
-| Best `maxBins` | *(run pipeline)* |
+| Accuracy | **0.3644** |
+| Weighted F1 | **0.2559** |
+| Best `numTrees` | 200 |
+| Best `maxDepth` | 15 |
+| Best `maxBins` | — (default) |
 
 ### 6.3 Model 2 — Linear SVC (One-vs-Rest)
 
@@ -287,10 +287,10 @@ All feature transformations are implemented as a PySpark MLlib `Pipeline`:
 
 | Metric | Value |
 |---|---|
-| Accuracy | *(run pipeline)* |
-| Weighted F1 | *(run pipeline)* |
-| Best `regParam` | *(run pipeline)* |
-| Best `maxIter` | *(run pipeline)* |
+| Accuracy | 0.2701 |
+| Weighted F1 | 0.2232 |
+| Best `regParam` | 0.1 |
+| Best `maxIter` | 50 |
 
 ### 6.4 Model 3 — Naive Bayes (Multinomial)
 
@@ -310,17 +310,17 @@ Features are scaled with `MinMaxScaler` (instead of `StandardScaler`) to ensure 
 
 | Metric | Value |
 |---|---|
-| Accuracy | *(run pipeline)* |
-| Weighted F1 | *(run pipeline)* |
-| Best `smoothing` | *(run pipeline)* |
+| Accuracy | 0.3276 |
+| Weighted F1 | 0.2248 |
+| Best `smoothing` | 1.5 |
 
 ### 6.5 Results Summary
 
-| Model | Accuracy | Weighted F1 | CV Folds | Grid Size |
-|---|---|---|---|---|
-| Random Forest | *(TBD)* | *(TBD)* | 5 | 27 |
-| Linear SVC | *(TBD)* | *(TBD)* | 5 | 27 |
-| Naive Bayes | *(TBD)* | *(TBD)* | 5 | 5 |
+| Model | Accuracy | Weighted F1 | CV Folds | Grid Size | Best Params |
+|---|---|---|---|---|---|
+| Random Forest | **0.3644** | **0.2559** | 5 | 27 | numTrees=200, maxDepth=15 |
+| Naive Bayes | 0.3276 | 0.2248 | 5 | 5 | smoothing=1.5 |
+| Linear SVC | 0.2701 | 0.2232 | 5 | 27 | regParam=0.1, maxIter=50 |
 
 **Local prototype results (scikit-learn, 10% sample):**
 
@@ -465,11 +465,41 @@ This project demonstrates a complete end-to-end big data pipeline from raw CSV i
 
 2. **EDA Findings** — Temporal analysis confirmed that incidents peak on Friday afternoons and in the afternoon hours. The Tenderloin and Mission neighborhoods are persistent hotspots. The COVID-19 impact is clearly visible in the monthly trend (2020 dip).
 
-3. **ML Performance** — *(To be filled after pipeline run)* Random Forest is expected to outperform Linear SVC and Naive Bayes on this dataset due to its ability to model non-linear feature interactions, particularly between geographic coordinates and time.
+3. **ML Performance** — Random Forest (Accuracy 0.3644, F1 0.2559) outperformed both Linear SVC and Naive Bayes, confirming that non-linear decision boundaries between geographic and temporal features are better captured by ensemble tree methods. Linear SVC underperformed due to the OWLQN optimizer encountering numerical instability (NaNHistory resets) with certain hyperparameter combinations, ultimately converging at regParam=0.1. Naive Bayes performed surprisingly close to Random Forest (0.3276 accuracy) given its strong independence assumption, likely because geographic and temporal features carry relatively independent signals.
 
 4. **Feature Importance** — Based on the local scikit-learn prototype, `Longitude`, `Latitude`, and `hour` are the most informative features for predicting incident category, which aligns with the strong geographic clustering of different crime types.
 
 5. **Dashboard** — The Streamlit app provides a self-contained, no-Spark-required view of all pipeline outputs, suitable for stakeholder presentation.
+
+---
+
+---
+
+## 11. Reflections
+
+### Challenges
+
+1. **Sqoop type mapping** — The cluster's Sqoop 1.4.7 (Arenadata edition) maps all time-like PostgreSQL types (`TIMESTAMP`, `DATE`, `TIME`) to INT64 milliseconds in Parquet. The Hive external table DDL must declare these columns as `BIGINT`, not `TIMESTAMP` or `STRING`. Discovering this required reading Sqoop's `_metadata` file to inspect actual Parquet schema.
+
+2. **Hive metastore warehouse location** — Running `CREATE DATABASE IF NOT EXISTS` does not update the warehouse location if the database was previously created with a different `spark.sql.warehouse.dir`. The fix was to unconditionally `DROP DATABASE CASCADE` at the start of each Stage II run.
+
+3. **HDFS vs local filesystem** — PySpark's `df.write.csv("output/eda/...")` with a relative path defaults to HDFS on a YARN cluster, not the local filesystem. Stage IV reads CSVs with Python's `glob`, requiring an explicit `hdfs dfs -get` step after spark-submit.
+
+4. **LinearSVC numerical instability** — The OWLQN optimizer (used by LinearSVC internally) frequently reset its history (`NaNHistory`) during cross-validation folds, especially with large regularization values. This is expected behavior and did not prevent the model from converging.
+
+5. **Streamlit unavailability** — Streamlit was not installed on the cluster. Stage IV is made non-fatal: the Superset export ZIP (which does not require Streamlit) is generated successfully, and Streamlit failure produces a `WARNING` without aborting the pipeline.
+
+### Recommendations
+
+- **Address class imbalance** — Larceny Theft accounts for ~30% of records. Applying SMOTE or class-weighted loss functions could significantly improve recall on minority categories.
+- **Richer features** — Adding `incident_subcategory` (encoded), `neighborhood`, and interaction features (latitude × hour) would likely improve model accuracy.
+- **Gradient Boosting** — `pyspark.ml.classification.GBTClassifier` would be a strong alternative to Random Forest for this imbalanced tabular dataset.
+
+### Contribution Table
+
+| Name | Task | % |
+|---|---|---|
+| Ilya Maksimov | Full pipeline: architecture, Stage I–IV, infrastructure, debugging, report | 100% |
 
 ---
 

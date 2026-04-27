@@ -292,13 +292,15 @@ bash scripts/postprocess.sh   # Cleanup
 
 ## Results Summary
 
-| Model | Accuracy | Weighted F1 |
-|---|---|---|
-| Random Forest | TBD | TBD |
-| Linear SVC | TBD | TBD |
-| Naive Bayes | TBD | TBD |
+Trained on 795,743 incidents (70/30 split), 11 classes, YARN cluster.
 
-Results will be populated after pipeline execution and stored in `output/metrics/`.
+| Model | Accuracy | Weighted F1 | Best Params |
+|---|---|---|---|
+| Random Forest | **0.3644** | **0.2559** | numTrees=200, maxDepth=15 |
+| Naive Bayes | 0.3276 | 0.2248 | smoothing=1.5 |
+| Linear SVC | 0.2701 | 0.2232 | regParam=0.1, maxIter=50 |
+
+Full metrics in `output/metrics/metrics_summary.json`.
 
 ---
 
@@ -306,10 +308,7 @@ Results will be populated after pipeline execution and stored in `output/metrics
 
 | Name | Contribution |
 |---|---|
-| Member 1 | Stage I, Stage II |
-| Member 2 | Stage III (ML) |
-| Member 3 | Stage IV, Report |
-| Member 4 | EDA, Documentation |
+| Ilya Maksimov | Stage I, Stage II, Stage III, Stage IV, Infrastructure |
 
 ---
 
