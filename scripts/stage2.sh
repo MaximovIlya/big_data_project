@@ -29,4 +29,8 @@ spark-submit \
     --hdfs-raw "$HDFS_RAW" \
     --output-dir output/eda
 
+# Copy EDA output from HDFS to local FS so Stage IV can read it
+rm -rf output/eda
+hdfs dfs -get output/eda output/eda
+
 echo "=== Stage II complete. EDA results in output/eda/ ==="

@@ -126,7 +126,7 @@ def build_sqlite(insights):
             print(f"  [SKIP] {ins['key']} — no CSV found (run stage2 first)")
             continue
         insight_df.to_sql(ins["table"], con, if_exists="replace", index=False)
-        print(f"  [OK]   {ins['key']} → {len(df)} rows")
+        print(f"  [OK]   {ins['key']} → {len(insight_df)} rows")
         loaded.append(ins)
     con.close()
     return loaded

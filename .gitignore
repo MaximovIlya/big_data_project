@@ -19,6 +19,10 @@ models/naive_bayes/
 # Cluster manual (local reference only)
 IU Hadoop Cluster - Manual page.html
 
+# Secrets
+kaggle.json
+*.token
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
