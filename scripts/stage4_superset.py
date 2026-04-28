@@ -534,11 +534,8 @@ def chart_params(ins):
 def chart_yaml(ins):
     """Superset chart YAML."""
     viz_type, params_json = chart_params(ins)
-    # Escape single quotes for YAML single-quoted string
     params_escaped = params_json.replace("'", "''")
-    desc_escaped = ins.get("description", "").replace("'", "''")
-    return f"""slice_name: {json.dumps(ins['title'])}
-description: '{desc_escaped}'
+    return f"""slice_name: {ins['title']}
 viz_type: {viz_type}
 params: '{params_escaped}'
 cache_timeout: null
@@ -591,19 +588,24 @@ def dashboard_yaml(loaded_insights):
 
     chart_refs = "\n".join(f"- uuid: {ins['uuid']}" for ins in loaded_insights)
 
+    position_str = json.dumps(position).replace("'", "''")
+    metadata = {
+        "native_filter_configuration": [],
+        "timed_refresh_immune_slices": [],
+        "expanded_slices": {},
+        "refresh_frequency": 0,
+        "default_filters": "{}",
+        "color_scheme": "",
+    }
+    metadata_str = json.dumps(metadata).replace("'", "''")
+
     return f"""dashboard_title: SF Police Incidents - Big Data Pipeline
-description: 'EDA insights, ML model performance, and predictions from SF PD Incident Reports 2018-Present'
+description: EDA insights and ML model results from SF PD Incident Reports 2018-Present
 css: ''
 slug: sf-incidents-pipeline
 uuid: {DASH_UUID}
-position: {json.dumps(position)}
-metadata:
-  native_filter_configuration: []
-  timed_refresh_immune_slices: []
-  expanded_slices: {{}}
-  refresh_frequency: 0
-  default_filters: '{{}}'
-  color_scheme: ''
+position: '{position_str}'
+metadata: '{metadata_str}'
 version: 1.0.0
 charts:
 {chart_refs}
