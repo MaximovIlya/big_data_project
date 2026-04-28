@@ -535,9 +535,10 @@ def chart_yaml(ins):
     """Superset chart YAML."""
     viz_type, params_json = chart_params(ins)
     title_escaped = ins['title'].replace("'", "''")
+    params_escaped = params_json.replace("'", "''")
     return f"""slice_name: '{title_escaped}'
 viz_type: {viz_type}
-params: {params_json}
+params: '{params_escaped}'
 cache_timeout: null
 uuid: {ins['uuid']}
 dataset_uuid: {ins['ds_uuid']}
