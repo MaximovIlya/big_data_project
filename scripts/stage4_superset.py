@@ -351,7 +351,7 @@ def build_sqlite(insights):
 # ── Superset YAML generators ──────────────────────────────────────────────────
 
 def db_yaml():
-    """Superset database YAML (SQLite)."""
+    """Superset database YAML (SQLite) — Superset 3.x format."""
     abs_db = os.path.abspath(DB_PATH).replace("\\", "/")
     return f"""database_name: SF Incidents EDA
 sqlalchemy_uri: sqlite:///{abs_db}
@@ -371,6 +371,8 @@ extra:
   metadata_cache_timeout: {{}}
   schemas_allowed_for_csv_upload: []
 server_cert: null
+is_managed_externally: false
+external_url: null
 uuid: {DB_UUID}
 version: 1.0.0
 """
@@ -414,7 +416,7 @@ def dataset_yaml(ins):
 
     return f"""table_name: {ins['table']}
 main_dttm_col: null
-description: {json.dumps(ins.get('description', ''))}
+description: null
 default_endpoint: null
 offset: 0
 cache_timeout: null
@@ -425,6 +427,10 @@ template_params: null
 filter_select_enabled: false
 fetch_values_predicate: null
 extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+is_managed_externally: false
+external_url: null
 uuid: {ins['ds_uuid']}
 metrics:
 - metric_name: count
@@ -537,6 +543,12 @@ def chart_yaml(ins):
     title_escaped = ins['title'].replace("'", "''")
     params_escaped = params_json.replace("'", "''")
     return f"""slice_name: '{title_escaped}'
+description: null
+certified_by: null
+certification_details: null
+is_managed_externally: false
+external_url: null
+query_context: null
 viz_type: {viz_type}
 params: '{params_escaped}'
 cache_timeout: null
@@ -590,7 +602,11 @@ def dashboard_yaml(loaded_insights):
     chart_refs = "\n".join(f"- uuid: {ins['uuid']}" for ins in loaded_insights)
 
     return f"""dashboard_title: SF Police Incidents - Big Data Pipeline
-description: EDA insights and ML model results from SF PD Incident Reports 2018-Present
+description: null
+certified_by: null
+certification_details: null
+is_managed_externally: false
+external_url: null
 css: ''
 slug: sf-incidents-pipeline
 uuid: {DASH_UUID}
