@@ -368,7 +368,7 @@ allow_dml: false
 force_ctas_schema: null
 allow_multi_schema_metadata_fetch: false
 impersonate_user: false
-encrypted_extra: '{{}}'
+encrypted_extra: null
 extra: '{extra}'
 server_cert: null
 uuid: {DB_UUID}
@@ -389,7 +389,7 @@ def _col_yaml(col_name, col_type="TEXT", is_num=False):
         f"  expression: ''\n"
         f"  description: null\n"
         f"  python_date_format: null\n"
-        f"  extra: '{{}}'"
+        f"  extra: null"
     )
 
 
@@ -433,7 +433,7 @@ metrics:
   expression: COUNT(*)
   description: null
   d3format: null
-  extra: '{{}}'
+  extra: null
   warning_text: null
 {columns_block}
 database_uuid: {DB_UUID}
