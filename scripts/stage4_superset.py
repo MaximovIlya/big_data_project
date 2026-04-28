@@ -535,7 +535,8 @@ def chart_yaml(ins):
     """Superset chart YAML."""
     viz_type, params_json = chart_params(ins)
     params_escaped = params_json.replace("'", "''")
-    return f"""slice_name: {ins['title']}
+    title_escaped = ins['title'].replace("'", "''")
+    return f"""slice_name: '{title_escaped}'
 viz_type: {viz_type}
 params: '{params_escaped}'
 cache_timeout: null
