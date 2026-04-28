@@ -590,15 +590,6 @@ def dashboard_yaml(loaded_insights):
     chart_refs = "\n".join(f"- uuid: {ins['uuid']}" for ins in loaded_insights)
 
     position_str = json.dumps(position).replace("'", "''")
-    metadata = {
-        "native_filter_configuration": [],
-        "timed_refresh_immune_slices": [],
-        "expanded_slices": {},
-        "refresh_frequency": 0,
-        "default_filters": "{}",
-        "color_scheme": "",
-    }
-    metadata_str = json.dumps(metadata).replace("'", "''")
 
     return f"""dashboard_title: SF Police Incidents - Big Data Pipeline
 description: EDA insights and ML model results from SF PD Incident Reports 2018-Present
@@ -606,7 +597,13 @@ css: ''
 slug: sf-incidents-pipeline
 uuid: {DASH_UUID}
 position: '{position_str}'
-metadata: '{metadata_str}'
+metadata:
+  native_filter_configuration: []
+  timed_refresh_immune_slices: []
+  expanded_slices: {{}}
+  refresh_frequency: 0
+  default_filters: '{{}}'
+  color_scheme: ''
 version: 1.0.0
 charts:
 {chart_refs}
