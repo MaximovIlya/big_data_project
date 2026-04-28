@@ -365,11 +365,7 @@ force_ctas_schema: null
 allow_multi_schema_metadata_fetch: false
 impersonate_user: false
 encrypted_extra: null
-extra:
-  metadata_params: {{}}
-  engine_params: {{}}
-  metadata_cache_timeout: {{}}
-  schemas_allowed_for_csv_upload: []
+extra: null
 server_cert: null
 is_managed_externally: false
 external_url: null
@@ -441,6 +437,7 @@ metrics:
   d3format: null
   extra: null
   warning_text: null
+  currency: null
 {columns_block}
 database_uuid: {DB_UUID}
 version: 1.0.0
@@ -618,6 +615,11 @@ metadata:
   refresh_frequency: 0
   default_filters: '{{}}'
   color_scheme: ''
+  color_namespace: ''
+  label_colors: {{}}
+  shared_label_colors: {{}}
+  filter_scopes: {{}}
+  cross_filters_enabled: false
 version: 1.0.0
 charts:
 {chart_refs}
