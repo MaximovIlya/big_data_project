@@ -437,6 +437,7 @@ metrics:
   d3format: null
   extra: null
   warning_text: null
+  currency: null
 {columns_block}
 database_uuid: {DB_UUID}
 version: 1.0.0
@@ -612,8 +613,13 @@ metadata:
   timed_refresh_immune_slices: []
   expanded_slices: {{}}
   refresh_frequency: 0
-  default_filters: {{}}
+  default_filters: '{{}}'
   color_scheme: ''
+  color_namespace: ''
+  label_colors: {{}}
+  shared_label_colors: {{}}
+  filter_scopes: {{}}
+  cross_filters_enabled: false
 version: 1.0.0
 charts:
 {chart_refs}
