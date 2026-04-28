@@ -353,13 +353,6 @@ def build_sqlite(insights):
 def db_yaml():
     """Superset database YAML (SQLite) — Superset 3.x format."""
     abs_db = os.path.abspath(DB_PATH).replace("\\", "/")
-    extra = json.dumps({
-        "allows_virtual_table_explore": True,
-        "metadata_params": {},
-        "engine_params": {},
-        "metadata_cache_timeout": {},
-        "schemas_allowed_for_csv_upload": [],
-    }).replace("'", "''")
     return f"""database_name: SF Incidents EDA
 sqlalchemy_uri: sqlite:///{abs_db}
 cache_timeout: null
@@ -372,7 +365,7 @@ force_ctas_schema: null
 allow_multi_schema_metadata_fetch: false
 impersonate_user: false
 encrypted_extra: null
-extra: '{extra}'
+extra: null
 server_cert: null
 is_managed_externally: false
 external_url: null
@@ -619,7 +612,7 @@ metadata:
   timed_refresh_immune_slices: []
   expanded_slices: {{}}
   refresh_frequency: 0
-  default_filters: '{{}}'
+  default_filters: {{}}
   color_scheme: ''
 version: 1.0.0
 charts:
