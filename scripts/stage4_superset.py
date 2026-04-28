@@ -353,10 +353,6 @@ def build_sqlite(insights):
 def db_yaml():
     """Superset database YAML (SQLite)."""
     abs_db = os.path.abspath(DB_PATH).replace("\\", "/")
-    extra = (
-        '{"metadata_params":{},"engine_params":{},'
-        '"metadata_cache_timeout":{},"schemas_allowed_for_csv_upload":[]}'
-    )
     return f"""database_name: SF Incidents EDA
 sqlalchemy_uri: sqlite:///{abs_db}
 cache_timeout: null
@@ -369,7 +365,11 @@ force_ctas_schema: null
 allow_multi_schema_metadata_fetch: false
 impersonate_user: false
 encrypted_extra: null
-extra: '{extra}'
+extra:
+  metadata_params: {{}}
+  engine_params: {{}}
+  metadata_cache_timeout: {{}}
+  schemas_allowed_for_csv_upload: []
 server_cert: null
 uuid: {DB_UUID}
 version: 1.0.0
@@ -534,11 +534,10 @@ def chart_params(ins):
 def chart_yaml(ins):
     """Superset chart YAML."""
     viz_type, params_json = chart_params(ins)
-    params_escaped = params_json.replace("'", "''")
     title_escaped = ins['title'].replace("'", "''")
     return f"""slice_name: '{title_escaped}'
 viz_type: {viz_type}
-params: '{params_escaped}'
+params: {params_json}
 cache_timeout: null
 uuid: {ins['uuid']}
 dataset_uuid: {ins['ds_uuid']}
@@ -589,14 +588,12 @@ def dashboard_yaml(loaded_insights):
 
     chart_refs = "\n".join(f"- uuid: {ins['uuid']}" for ins in loaded_insights)
 
-    position_str = json.dumps(position).replace("'", "''")
-
     return f"""dashboard_title: SF Police Incidents - Big Data Pipeline
 description: EDA insights and ML model results from SF PD Incident Reports 2018-Present
 css: ''
 slug: sf-incidents-pipeline
 uuid: {DASH_UUID}
-position: '{position_str}'
+position: {json.dumps(position)}
 metadata:
   native_filter_configuration: []
   timed_refresh_immune_slices: []
