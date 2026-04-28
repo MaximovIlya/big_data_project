@@ -302,15 +302,6 @@ Trained on 795,743 incidents (70/30 split), 11 classes, YARN cluster.
 
 Full metrics in `output/metrics/metrics_summary.json`.
 
----
-
-## Team
-
-| Name | Contribution |
-|---|---|
-| Ilya Maksimov | Stage I, Stage II, Stage III, Stage IV, Infrastructure |
-
----
 
 ## References
 
