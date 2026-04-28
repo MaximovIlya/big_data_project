@@ -1,0 +1,835 @@
+\documentclass[12pt,a4paper]{article}
+
+% -------------------- Packages --------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{fancyvrb}
+\usepackage{graphicx}
+
+\geometry{margin=2.5cm}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+\setlist[itemize]{noitemsep, topsep=2pt}
+\setlist[enumerate]{noitemsep, topsep=2pt}
+
+\lstdefinestyle{codeblock}{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    backgroundcolor=\color{gray!5}
+}
+\lstset{style=codeblock}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\newcommand{\placeholderfigure}[2]{%
+\begin{figure}[H]
+\centering
+\IfFileExists{#1}{\includegraphics[width=0.9\textwidth]{#1}}{\fbox{\parbox{0.85\textwidth}{\centering Figure placeholder: #2\\File expected at: \texttt{#1}}}}
+\caption{#2}
+\end{figure}
+}
+
+\title{\textbf{Big Data Pipeline for San Francisco Police Incident Report Analysis}\\
+\large Final Project Report}
+\author{Course: Big Data Systems\\Group: AI-02\\Dataset: San Francisco Police Department Incident Reports 2018--Present\\\vspace{0.3cm}\\Zakirov Karim\\Maksimov Ilya\\Gavkovskiy Aleksander}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\textbf{Dataset source:} \href{https://www.kaggle.com/datasets/vivovinco/san-francisco-incident-reports-2018present}{Kaggle --- San Francisco Incident Reports 2018--Present}\\
+\textbf{GitHub repository:} \href{https://github.com/MaximovIlya/big_data_project.git}{https://github.com/MaximovIlya/big_data_project.git}
+\end{center}
+
+\tableofcontents
+\newpage
+
+% -------------------- 1. Introduction --------------------
+\section{Introduction}
+
+This project implements an end-to-end Big Data pipeline for analyzing the \textit{San Francisco Police Department Incident Reports} dataset. The dataset contains approximately 800,000 police incident records reported in San Francisco from 2018 onward. Each record includes temporal, spatial, administrative, and categorical attributes such as incident date and time, incident category, police district, neighborhood, coordinates, and resolution status.
+
+\textbf{Problem statement.} Given an incident's temporal and spatial features, including hour of day, day of week, month, year, geographic coordinates, and police district, the goal is to predict the incident category. This is a multi-class classification task with 11 target classes: the 10 most frequent incident categories and one aggregated \textit{Other} class.
+
+The project covers all major stages of a Big Data workflow: data ingestion, distributed storage, data preparation, exploratory data analysis, machine learning, and dashboard-based presentation of the results.
+
+% -------------------- 2. Business Objectives --------------------
+\section{Business Objectives}
+
+The business objective of the project is to transform raw police incident data into analytical and predictive insights that can support operational decision-making. In a real public safety environment, such analysis could help identify frequent incident categories, detect temporal and spatial crime patterns, and support better resource allocation across police districts.
+
+The main business goals are:
+\begin{enumerate}
+    \item Build a reliable and reproducible Big Data pipeline for processing a large public safety dataset.
+    \item Identify the most common incident categories and the locations where they occur most frequently.
+    \item Analyze temporal patterns by hour, day of week, month, and year.
+    \item Compare police districts and neighborhoods by incident volume and resolution rate.
+    \item Train baseline machine learning models to estimate how well incident categories can be predicted from time and location features.
+    \item Present results through a dashboard that can be used by technical and non-technical users.
+\end{enumerate}
+
+% -------------------- 3. Data Description --------------------
+\section{Data Description}
+
+\subsection{Dataset Overview}
+
+\begin{table}[H]
+\centering
+\caption{General dataset characteristics}
+\begin{tabular}{L{5cm} L{8cm}}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Source & San Francisco Open Data / Kaggle \\
+Number of records & 796,456 rows \\
+Number of columns & 35 \\
+File format & CSV, approximately 412.9 MB in memory \\
+Time range & 2018-01-01 -- 2023-11-24 \\
+Update frequency & Daily \\
+Main analytical unit & One police incident report \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dataset contains structured information about police reports. The original CSV file is used as the pipeline input. After ingestion and cleaning, the data is stored in PostgreSQL, HDFS, and Hive for further analysis and modeling.
+
+\subsection{Key Columns}
+
+\begin{longtable}{L{4cm} L{3cm} L{8cm}}
+\caption{Key dataset columns}\\
+\toprule
+\textbf{Column} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Column} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endhead
+\texttt{Row ID} & INTEGER & Unique incident identifier \\
+\texttt{Incident Datetime} & TIMESTAMP & Date and time when the incident occurred \\
+\texttt{Incident Year} & SMALLINT & Incident year, starting from 2018 \\
+\texttt{Incident Day of Week} & TEXT & Day name, Monday--Sunday \\
+\texttt{Incident Category} & TEXT & Target variable: high-level incident category \\
+\texttt{Incident Subcategory} & TEXT & More detailed incident subcategory \\
+\texttt{Police District} & TEXT & SFPD police district \\
+\texttt{Analysis Neighborhood} & TEXT & Neighborhood name \\
+\texttt{Latitude} & FLOAT & Geographic latitude, approximately 37.0--38.5 \\
+\texttt{Longitude} & FLOAT & Geographic longitude, approximately $-123.5$--$-122.0$ \\
+\texttt{Resolution} & TEXT & Final status or outcome of the incident report \\
+\bottomrule
+\end{longtable}
+
+% -------------------- 4. Data Characteristics --------------------
+\section{Data Characteristics}
+
+\subsection{Target Variable Distribution}
+
+The \texttt{Incident Category} field contains more than 60 unique values. For classification, the top 10 most frequent categories were kept as separate classes, while all remaining categories were grouped into the \textit{Other} class. This produced 11 target classes in total.
+
+\begin{table}[H]
+\centering
+\caption{Target variable distribution}
+\begin{tabular}{r L{7cm} r}
+\toprule
+\textbf{Rank} & \textbf{Category} & \textbf{Count} \\
+\midrule
+1 & Larceny Theft & 242,034 \\
+2 & Other Miscellaneous & 54,225 \\
+3 & Malicious Mischief & 53,860 \\
+4 & Assault & 48,501 \\
+5 & Non-Criminal & 46,987 \\
+6 & Burglary & 44,390 \\
+7 & Motor Vehicle Theft & 42,555 \\
+8 & Recovered Vehicle & 31,927 \\
+9 & Fraud & 25,926 \\
+10 & Lost Property & 23,194 \\
+-- & Other, remaining 39 categories & 182,857 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The distribution is strongly imbalanced. The largest class, \textit{Larceny Theft}, accounts for a very large share of the dataset. This imbalance affects classification performance and explains why baseline models tend to over-predict the majority classes.
+
+\subsection{Data Quality}
+
+\begin{table}[H]
+\centering
+\caption{Data quality issues and handling strategy}
+\begin{tabular}{L{4cm} L{4cm} L{7cm}}
+\toprule
+\textbf{Issue} & \textbf{Column(s)} & \textbf{Handling} \\
+\midrule
+Missing coordinates & \texttt{Latitude}, \texttt{Longitude} & Rows excluded from ML, but kept for EDA where possible \\
+Missing police district & \texttt{Police District} & Replaced with \texttt{Unknown} \\
+Missing category & \texttt{Incident Category} & Rows excluded from the Hive ML-ready table \\
+Type parsing errors & \texttt{Incident Datetime} & Parsed with \texttt{TO\_TIMESTAMP(..., 'YYYY/MM/DD HH:MI:SS AM')} \\
+Dirty rows and text in numeric columns & Multiple columns & Loaded into a staging table as \texttt{TEXT}, then cast during insertion into the typed table \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -------------------- 5. Architecture --------------------
+\section{Architecture of the Data Pipeline}
+
+\begin{lstlisting}[language=bash,caption={Overall Big Data pipeline architecture}]
+data/sf_incidents.csv  (800K rows, 35 columns, ~500 MB)
+       |
+       v  STAGE I
++-------------------------+
+| PostgreSQL              | <- staging table (all TEXT) -> typed insert
+| sf_incidents DB         |    with constraints and indexes
++-----------+-------------+
+            | Apache Sqoop (JDBC -> HDFS, MapReduce, 4 mappers)
+            v  STAGE I
++-------------------------+
+| HDFS                    | <- Parquet + Snappy compression
+| /user/$USER/sf_incidents|
++-----------+-------------+
+            | Hive external table
+            v  STAGE II
++-------------------------+
+| Apache Hive             | <- incidents_raw (EXTERNAL)
+| sf_incidents_db         |    incidents_parquet (MANAGED, Parquet+Snappy)
++-----------+-------------+
+            | Spark SQL on YARN
+            v  STAGE II
++-------------------------+
+| 8 EDA Insights          | <- output/eda/ CSV part files
+| + Summary Statistics    |
++-----------+-------------+
+            | PySpark MLlib on YARN
+            v  STAGE III
++-------------------------+
+| 3 ML Models             | <- Random Forest, Linear SVC, Naive Bayes
+| + CrossValidator        |    models/ saved PipelineModels
+| + Hyperparameter Grids  |    output/metrics/metrics_summary.json
++-----------+-------------+
+            |
+            v  STAGE IV
++-------------------------+
+| Streamlit Dashboard     | <- reads output CSVs, no Spark at runtime
+| 5 pages                 |    Overview, EDA, Models, Predictions, Map
++-------------------------+
+\end{lstlisting}
+
+\textbf{Key design decisions:}
+\begin{itemize}
+    \item \textbf{PostgreSQL staging table.} All 35 columns are first loaded as \texttt{TEXT}. Then values are cast and inserted into the typed production table. This makes the loading process more robust to dirty records.
+    \item \textbf{Sqoop import into HDFS.} Sqoop transfers the typed PostgreSQL table into HDFS in Parquet format with Snappy compression.
+    \item \textbf{Hive layer.} The external table \texttt{incidents\_raw} preserves the HDFS files, while the managed table \texttt{incidents\_parquet} stores cleaned data for analysis and ML.
+    \item \textbf{Spark SQL and PySpark MLlib.} Spark is used for scalable analysis, feature preparation, model training, and evaluation.
+    \item \textbf{CSV-based dashboard outputs.} Streamlit reads precomputed CSV files, so no Spark or Hive connection is required at dashboard runtime.
+\end{itemize}
+
+\subsection{Input and Output for Each Stage}
+
+\begin{table}[H]
+\centering
+\caption{Input and output for each pipeline stage}
+\begin{tabular}{L{2.5cm} L{4.7cm} L{4.7cm} L{3.5cm}}
+\toprule
+\textbf{Stage} & \textbf{Input} & \textbf{Main processing activity} & \textbf{Output} \\
+\midrule
+Stage I: Data ingestion & Raw CSV file \texttt{data/sf\_incidents.csv} & Load into PostgreSQL staging table, cast values, create typed table, import with Sqoop & PostgreSQL table and HDFS Parquet files \\
+Stage II: Storage and EDA & HDFS Parquet files and Hive tables & Create external and managed Hive tables, clean data, run Spark SQL queries & Clean Hive table and 8 EDA CSV outputs \\
+Stage III: ML modeling & Clean Hive table \texttt{incidents\_parquet} & Feature extraction, preprocessing, model training, cross-validation, evaluation & Saved models, metrics JSON, sample predictions \\
+Stage IV: Data presentation & EDA CSVs, metrics JSON, prediction files & Load outputs into Streamlit and Superset export generator & Dashboard, charts, Superset ZIP export \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -------------------- 6. Data Preparation --------------------
+\section{Data Preparation}
+
+\subsection{PostgreSQL Schema and Loading Strategy}
+
+The main PostgreSQL table \texttt{sf\_incidents} is created with primary key, type constraints, and indexes for frequent analytical queries.
+
+\begin{lstlisting}[language=SQL,caption={Main PostgreSQL table DDL}]
+CREATE TABLE sf_incidents (
+    row_id              BIGINT PRIMARY KEY,
+    incident_datetime   TIMESTAMP NOT NULL,
+    incident_year       SMALLINT NOT NULL CHECK (incident_year >= 2018),
+    latitude            DOUBLE PRECISION CHECK (latitude BETWEEN 37.0 AND 38.5),
+    longitude           DOUBLE PRECISION CHECK (longitude BETWEEN -123.5 AND -122.0),
+    incident_category   TEXT,
+    police_district     TEXT,
+    -- ... 28 additional columns
+);
+CREATE INDEX idx_sf_incidents_category ON sf_incidents (incident_category);
+CREATE INDEX idx_sf_incidents_datetime ON sf_incidents (incident_datetime);
+CREATE INDEX idx_sf_incidents_district ON sf_incidents (police_district);
+\end{lstlisting}
+
+\textbf{Loading strategy:}
+\begin{enumerate}
+    \item Create \texttt{sf\_incidents\_staging} with all columns stored as \texttt{TEXT}.
+    \item Load the CSV file using \texttt{\textbackslash COPY sf\_incidents\_staging FROM ... WITH (FORMAT CSV, HEADER)}.
+    \item Insert records into \texttt{sf\_incidents} using explicit casts and \texttt{ON CONFLICT DO NOTHING}.
+\end{enumerate}
+
+This approach avoids failures caused by individual malformed records and makes the ingestion step more stable.
+
+\subsection{Sqoop Import}
+
+\begin{lstlisting}[language=bash,caption={Sqoop import from PostgreSQL to HDFS}]
+sqoop import \
+  --connect jdbc:postgresql://$PG_HOST:$PG_PORT/$PG_DB \
+  --username $PG_USER \
+  --password $PG_PASSWORD \
+  --table sf_incidents \
+  --target-dir $HDFS_BASE/raw \
+  --as-parquetfile \
+  --compress \
+  --compression-codec snappy \
+  --num-mappers 4 \
+  --map-column-java latitude=Double,longitude=Double,incident_year=Integer
+\end{lstlisting}
+
+The result is the HDFS directory \texttt{/user/\$USER/sf\_incidents/raw/}, which contains Snappy-compressed Parquet part files.
+
+\subsection{ER Diagram}
+
+The project mainly uses one central fact table, \texttt{sf\_incidents}. Since the source dataset is a denormalized public CSV file, the database design is intentionally simple. The main table stores incident-level facts, and the categorical fields can be interpreted as dimensions such as category, district, neighborhood, and resolution.
+
+\begin{lstlisting}[caption={Logical ER diagram of the project database}]
++-----------------------------+
+|        sf_incidents          |
++-----------------------------+
+| PK row_id                   |
+| incident_datetime           |
+| incident_year               |
+| incident_day_of_week        |
+| incident_category           |----> Category dimension (logical)
+| incident_subcategory        |
+| police_district             |----> Police district dimension (logical)
+| analysis_neighborhood       |----> Neighborhood dimension (logical)
+| latitude                    |
+| longitude                   |
+| resolution                  |----> Resolution dimension (logical)
+| ... other original columns  |
++-----------------------------+
+\end{lstlisting}
+
+\subsection{Sample Records from the Database}
+
+The following table shows representative examples of records stored in the database. The values illustrate the structure of the final typed table after ingestion and parsing.
+
+\begin{table}[H]
+\centering
+\caption{Sample records from the \texttt{sf\_incidents} table}
+\begin{tabular}{r L{3.2cm} L{3.2cm} L{2.6cm} L{2cm} L{2cm}}
+\toprule
+\textbf{Row ID} & \textbf{Datetime} & \textbf{Category} & \textbf{District} & \textbf{Lat.} & \textbf{Long.} \\
+\midrule
+123456 & 2022-05-14 18:30 & Larceny Theft & Central & 37.78 & -122.41 \\
+123457 & 2022-05-15 22:10 & Assault & Mission & 37.76 & -122.42 \\
+123458 & 2022-05-16 09:45 & Burglary & Southern & 37.77 & -122.40 \\
+123459 & 2021-11-02 13:15 & Fraud & Northern & 37.79 & -122.43 \\
+123460 & 2020-03-28 03:40 & Motor Vehicle Theft & Bayview & 37.73 & -122.39 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -------------------- 7. Hive Tables --------------------
+\section{Creating Hive Tables and Preparing Data for Analysis}
+
+Two tables are created in the \texttt{sf\_incidents\_db} Hive database.
+
+\begin{table}[H]
+\centering
+\caption{Hive tables used in the project}
+\begin{tabular}{L{4cm} L{3cm} L{4cm} L{5cm}}
+\toprule
+\textbf{Table} & \textbf{Type} & \textbf{Format} & \textbf{Purpose} \\
+\midrule
+\texttt{incidents\_raw} & EXTERNAL & Parquet from Sqoop & Raw imported data; HDFS files are preserved when the table is dropped \\
+\texttt{incidents\_parquet} & MANAGED & Parquet + Snappy & Cleaned table for EDA and ML \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The managed table \texttt{incidents\_parquet} is created using \texttt{CREATE TABLE ... AS SELECT}. During this step, rows with null \texttt{incident\_category}, \texttt{latitude}, or \texttt{longitude} are filtered out for ML readiness. Other fields, such as missing police district, are handled by replacing missing values with \texttt{Unknown}.
+
+% -------------------- 8. Data Analysis --------------------
+\section{Data Analysis}
+
+All eight analytical insights are computed with PySpark SQL on YARN and saved to \texttt{output/eda/} as CSV files. Each insight is stored in a separate output directory with a single Spark part file.
+
+\subsection{Analysis Results and Interpretation}
+
+\subsubsection{Insight 1 --- Top 10 Incident Categories}
+
+This analysis identifies the most frequently reported incident categories. \textit{Larceny Theft} is the dominant category and accounts for approximately one quarter of all incidents. This finding shows a strong class imbalance and explains why classification models tend to favor this category.
+
+\subsubsection{Insight 2 --- Incidents by Hour of Day}
+
+The hourly distribution has a bimodal pattern, with peaks around noon and 6 PM. The lowest number of incidents occurs between 3 AM and 6 AM. This suggests that incidents are more frequently reported during active daytime and early evening hours.
+
+\subsubsection{Insight 3 --- Incidents by Day of Week}
+
+Fridays have the highest number of incidents, while Sundays have the lowest. The pattern reflects higher social and commercial activity toward the end of the working week.
+
+\subsubsection{Insight 4 --- Incidents by Police District}
+
+The Mission, Southern, and Central districts report the highest incident volumes. These districts contain dense residential, commercial, and tourist areas, which likely increases incident reporting frequency.
+
+\subsubsection{Insight 5 --- Monthly Incident Trend from 2018 Onward}
+
+The monthly time series shows a clear dip in early 2020, which corresponds to the COVID-19 lockdown period. After that, incident volume gradually recovered during 2021--2023.
+
+\subsubsection{Insight 6 --- Resolution Rate by Top 10 Categories}
+
+Drug-related offenses have the highest resolution rates, above 60\%, while \textit{Larceny Theft} is often unresolved, with a resolution rate below 20\%. This indicates that some categories are easier to resolve due to the nature of the incident and evidence availability.
+
+\subsubsection{Insight 7 --- Top 15 Neighborhoods by Incident Count}
+
+Tenderloin and Mission consistently appear among the highest-volume neighborhoods. This is likely related to population density, commercial activity, public transit, nightlife, and local socioeconomic factors.
+
+\subsubsection{Insight 8 --- Heatmap: Hour by Day of Week}
+
+The hour-by-day heatmap shows that Friday and Saturday afternoon/evening periods, approximately 14:00--20:00, are the peak periods for incidents. This pattern can support scheduling and patrol planning.
+
+\subsection{Charts}
+
+The project uses bar charts, line charts, heatmaps, and map-based visualizations. The following table summarizes the chart types and their analytical purpose.
+
+\begin{longtable}{L{4cm} L{3cm} L{8cm}}
+\caption{Description of analysis charts}\\
+\toprule
+\textbf{Chart} & \textbf{Type} & \textbf{Purpose and interpretation} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Chart} & \textbf{Type} & \textbf{Purpose and interpretation} \\
+\midrule
+\endhead
+Top 10 Incident Categories & Bar chart & Shows the most common categories and highlights class imbalance \\
+Incidents by Hour of Day & Bar chart & Shows hourly activity and identifies peak reporting hours \\
+Incidents by Day of Week & Bar chart & Compares incident volume across weekdays \\
+Incidents by Police District & Bar chart & Identifies high-volume police districts \\
+Monthly Incident Trend & Line chart & Shows long-term changes and the COVID-19 dip in 2020 \\
+Resolution Rate by Category & Bar chart with threshold line & Compares how often different incident categories are resolved \\
+Top 15 Neighborhoods & Bar chart & Identifies neighborhood-level hotspots \\
+Hour by Day of Week & Heatmap & Shows combined temporal patterns and peak time windows \\
+Spatial Map & Map scatter plot & Shows district-level spatial concentration of incidents \\
+Model Performance & Bar chart & Compares Accuracy and Weighted F1 for the three ML models \\
+\bottomrule
+\end{longtable}
+
+
+% -------------------- 9. ML Modeling --------------------
+\section{ML Modeling}
+
+\subsection{Feature Extraction and Data Preprocessing}
+
+All feature transformations are implemented as a PySpark MLlib \texttt{Pipeline}.
+
+\begin{longtable}{L{3.5cm} L{4cm} L{5cm} L{3cm}}
+\caption{Feature engineering for machine learning}\\
+\toprule
+\textbf{Feature} & \textbf{Raw column} & \textbf{Transformation} & \textbf{Notes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Feature} & \textbf{Raw column} & \textbf{Transformation} & \textbf{Notes} \\
+\midrule
+\endhead
+\texttt{hour} & \texttt{incident\_datetime} & SQL function \texttt{HOUR()} & 0--23 \\
+\texttt{day\_of\_week} & \texttt{incident\_datetime} & \texttt{DAYOFWEEK()} & 1 = Sunday, ..., 7 = Saturday \\
+\texttt{month} & \texttt{incident\_datetime} & \texttt{MONTH()} & 1--12 \\
+\texttt{year} & \texttt{incident\_datetime} & Extracted from timestamp & 2018 onward \\
+\texttt{latitude} & \texttt{latitude} & Direct numeric feature & Rows with null coordinates removed \\
+\texttt{longitude} & \texttt{longitude} & Direct numeric feature & Rows with null coordinates removed \\
+\texttt{police\_district} & \texttt{police\_district} & \texttt{StringIndexer} $\rightarrow$ \texttt{OneHotEncoder} & Null values replaced with \texttt{Unknown} \\
+\texttt{features} & All features above & \texttt{VectorAssembler} + \texttt{StandardScaler} & Used for Random Forest and Linear SVC \\
+\texttt{features}, NB & All features above & \texttt{VectorAssembler} + \texttt{MinMaxScaler} & Required because Naive Bayes needs non-negative features \\
+\bottomrule
+\end{longtable}
+
+The target variable \texttt{incident\_category} is converted into a numeric label using \texttt{StringIndexer}. The final target contains 11 classes: the top 10 categories and the aggregated \textit{Other} class.
+
+The dataset is split into 70\% training data and 30\% test data using a fixed random seed of 42.
+
+\subsection{Training and Fine-Tuning}
+
+Three models are trained and fine-tuned using PySpark MLlib. Cross-validation is used to select the best hyperparameters according to weighted F1 score.
+
+\subsubsection{Model 1 --- Random Forest Classifier}
+
+\textbf{Implementation:} \texttt{pyspark.ml.classification.RandomForestClassifier}.
+
+\begin{table}[H]
+\centering
+\caption{Random Forest hyperparameter grid}
+\begin{tabular}{L{4cm} L{4cm} L{7cm}}
+\toprule
+\textbf{Parameter} & \textbf{Values} & \textbf{Description} \\
+\midrule
+\texttt{numTrees} & 50, 100, 200 & Number of trees in the forest \\
+\texttt{maxDepth} & 5, 10, 15 & Maximum depth of each tree \\
+\texttt{maxBins} & 16, 32, 64 & Number of bins for feature discretization \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The grid contains 27 combinations and is evaluated using 5-fold cross-validation.
+
+\subsubsection{Model 2 --- Linear SVC with One-vs-Rest}
+
+\textbf{Implementation:} \texttt{pyspark.ml.classification.LinearSVC} wrapped in \texttt{OneVsRest} for multi-class classification.
+
+\begin{table}[H]
+\centering
+\caption{Linear SVC hyperparameter grid}
+\begin{tabular}{L{4cm} L{4cm} L{7cm}}
+\toprule
+\textbf{Parameter} & \textbf{Values} & \textbf{Description} \\
+\midrule
+\texttt{regParam} & 0.01, 0.1, 1.0 & L2 regularization strength \\
+\texttt{maxIter} & 50, 100, 200 & Maximum number of iterations \\
+\texttt{tol} & $10^{-4}$, $10^{-3}$, $10^{-2}$ & Convergence tolerance \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The grid contains 27 combinations and is evaluated using 5-fold cross-validation.
+
+\subsubsection{Model 3 --- Multinomial Naive Bayes}
+
+\textbf{Implementation:} \texttt{pyspark.ml.classification.NaiveBayes} with \texttt{modelType="multinomial"}.
+
+\begin{table}[H]
+\centering
+\caption{Naive Bayes hyperparameter grid}
+\begin{tabular}{L{4cm} L{5cm} L{6cm}}
+\toprule
+\textbf{Parameter} & \textbf{Values} & \textbf{Description} \\
+\midrule
+\texttt{smoothing} & 0.1, 0.5, 1.0, 1.5, 2.0 & Laplace/Lidstone smoothing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This grid contains 5 combinations and is evaluated using 5-fold cross-validation.
+
+\subsection{Evaluation}
+
+\begin{table}[H]
+\centering
+\caption{Model evaluation summary}
+\begin{tabular}{L{3.2cm} L{2cm} L{2cm} L{2cm} L{2cm} L{4cm}}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Weighted F1} & \textbf{CV folds} & \textbf{Grid size} & \textbf{Best parameters} \\
+\midrule
+Random Forest & \textbf{0.3644} & \textbf{0.2559} & 5 & 27 & \texttt{numTrees=200}, \texttt{maxDepth=15} \\
+Naive Bayes & 0.3276 & 0.2248 & 5 & 5 & \texttt{smoothing=1.5} \\
+Linear SVC & 0.2701 & 0.2232 & 5 & 27 & \texttt{regParam=0.1}, \texttt{maxIter=50} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Random Forest achieved the best results with Accuracy = 0.3644 and Weighted F1 = 0.2559. The result is modest, but expected because the classification problem is difficult and the target classes are highly imbalanced. The model mostly learns strong spatial and temporal patterns, but it struggles to separate minority incident categories.
+
+\subsection{Local Prototype Results}
+
+A local scikit-learn prototype was also tested on a 10\% stratified sample. After removing rows with missing coordinates, the dataset contained 753,186 rows, 11 classes, and 7 features. The local split contained 52,722 training records and 22,596 test records.
+
+\begin{table}[H]
+\centering
+\caption{Local scikit-learn prototype results}
+\begin{tabular}{L{7cm} L{3cm} L{3cm}}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Weighted F1} \\
+\midrule
+Random Forest, \texttt{n=100}, \texttt{depth=10} & \textbf{0.3656} & \textbf{0.2550} \\
+Linear SVC, \texttt{C=0.1} & 0.3315 & 0.2286 \\
+Naive Bayes, \texttt{alpha=1.0} & 0.2915 & 0.1316 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The local prototype confirms the same pattern: Random Forest is the strongest model, while class imbalance remains the main limitation. Feature importance from the prototype shows that \texttt{Longitude}, \texttt{Latitude}, and \texttt{hour} are the most informative features.
+
+\subsection{Sample Predictions}
+
+For each model, five records from the test set are saved to \texttt{output/predictions/<model\_name>/}. Each record contains:
+\begin{itemize}
+    \item \texttt{actual\_category}: true label;
+    \item \texttt{predicted\_category}: model prediction;
+    \item \texttt{hour}, \texttt{day\_of\_week}, \texttt{police\_district}, \texttt{latitude}, \texttt{longitude}: input features.
+\end{itemize}
+
+% -------------------- 10. Data Presentation --------------------
+\section{Data Presentation}
+
+\subsection{Superset Export}
+
+The script \texttt{scripts/stage4\_superset.py} loads all eight EDA CSV outputs into a local SQLite database, \texttt{output/sf\_incidents\_eda.db}, and generates a Superset v1 export ZIP file: \texttt{output/superset\_export/sf\_incidents\_dashboard.zip}.
+
+The ZIP archive contains:
+\begin{itemize}
+    \item a database connection YAML file for SQLite;
+    \item eight dataset YAML files, one for each EDA insight;
+    \item eight chart YAML files for bar, line, and heatmap visualizations;
+    \item a dashboard YAML file with a two-column layout.
+\end{itemize}
+
+The archive can be imported through the Superset UI using \textit{Dashboards $\rightarrow$ Import dashboard}. A running Superset instance is not required to generate the export.
+
+\subsection{Description of the Streamlit Dashboard}
+
+The Streamlit dashboard, implemented in \texttt{scripts/stage4\_app.py}, contains five pages accessible from the sidebar.
+
+\begin{table}[H]
+\centering
+\caption{Streamlit dashboard pages}
+\begin{tabular}{L{5cm} L{10cm}}
+\toprule
+\textbf{Page} & \textbf{Content} \\
+\midrule
+Data Overview & Dataset metrics, number of incidents, number of categories, number of districts, pipeline architecture, and feature table \\
+EDA Insights & Interactive charts for all eight EDA insights: bar charts, line charts, and a heatmap \\
+Model Performance & Accuracy and Weighted F1 charts, model comparison table, and hyperparameter grid summary \\
+Predictions & Sample prediction tables for each model with correct/incorrect flags \\
+Spatial Map & \texttt{st.map} scatter plot with point size proportional to incident count by district \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Run command:}
+
+\begin{lstlisting}[language=bash]
+streamlit run scripts/stage4_app.py
+\end{lstlisting}
+
+The dashboard reads precomputed CSV files from \texttt{output/eda/} and \texttt{output/metrics/}. It does not require Spark or Hive at runtime.
+
+\subsection{Description of Each Chart}
+
+\begin{longtable}{L{4cm} L{4cm} L{7cm}}
+\caption{Dashboard chart descriptions}\\
+\toprule
+\textbf{Dashboard chart} & \textbf{Data source} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Dashboard chart} & \textbf{Data source} & \textbf{Description} \\
+\midrule
+\endhead
+Top categories chart & \texttt{output/eda/top\_categories} & Displays the most frequent incident categories and highlights class imbalance \\
+Hourly incidents chart & \texttt{output/eda/incidents\_by\_hour} & Shows how incident frequency changes by hour of day \\
+Weekday incidents chart & \texttt{output/eda/incidents\_by\_day} & Shows incident distribution across days of the week \\
+District incidents chart & \texttt{output/eda/incidents\_by\_district} & Compares police districts by total incident count \\
+Monthly trend chart & \texttt{output/eda/monthly\_trend} & Shows long-term incident dynamics from 2018 to 2023 \\
+Resolution rate chart & \texttt{output/eda/resolution\_rate} & Compares resolution percentages by category \\
+Neighborhood chart & \texttt{output/eda/top\_neighborhoods} & Shows the top 15 neighborhoods by incident count \\
+Hour-day heatmap & \texttt{output/eda/hour\_day\_heatmap} & Shows peak incident periods by combining hour and weekday \\
+Model performance chart & \texttt{output/metrics/metrics\_summary.json} & Compares Accuracy and Weighted F1 across the three ML models \\
+Spatial map & Aggregated district coordinates & Shows geographic concentration of incidents by police district \\
+\bottomrule
+\end{longtable}
+
+% -------------------- 11. Findings --------------------
+\section{Findings}
+
+The main findings of the project are:
+\begin{enumerate}
+    \item \textit{Larceny Theft} is the dominant category and creates a strong class imbalance problem.
+    \item Incidents are most frequent during daytime and early evening hours, with visible peaks around noon and 6 PM.
+    \item Friday has the highest incident count, while Sunday has the lowest.
+    \item Mission, Southern, and Central are the highest-volume police districts.
+    \item Tenderloin and Mission are the most prominent neighborhood-level hotspots.
+    \item The monthly trend shows a clear decrease in early 2020, corresponding to the COVID-19 lockdown period.
+    \item Resolution rates vary strongly by category: drug-related offenses have high resolution rates, while larceny theft is often unresolved.
+    \item Random Forest performs best among the three tested models, but overall ML performance is limited by class imbalance and the restricted feature set.
+\end{enumerate}
+
+% -------------------- 12. Project Structure --------------------
+\section{Project Structure}
+
+\begin{lstlisting}[language=bash,caption={Project directory structure}]
+bigdata-final-project/
+|-- data/sf_incidents.csv          # Raw dataset (800K rows, ~500 MB)
+|-- sql/
+|   |-- create_tables.sql          # PostgreSQL DDL (staging + main table)
+|   `-- create_hive_tables.hql     # Hive external + managed table DDL
+|-- scripts/
+|   |-- preprocess.sh              # Environment setup and output directories
+|   |-- stage1.sh                  # PostgreSQL load + Sqoop -> HDFS
+|   |-- stage2.sh                  # Hive tables + Spark EDA
+|   |-- stage2_eda.py              # PySpark EDA, 8 insights
+|   |-- stage3.sh                  # Spark ML training on YARN
+|   |-- stage3_ml.py               # PySpark MLlib pipeline
+|   |-- stage4.sh                  # Superset export + Streamlit launch
+|   |-- stage4_app.py              # Streamlit 5-page dashboard
+|   |-- stage4_superset.py         # Superset v1 export ZIP generator
+|   `-- postprocess.sh             # Output summary
+|-- notebooks/
+|   |-- 01_exploration.ipynb       # Schema, nulls, distributions
+|   |-- 02_eda.ipynb               # EDA insights with charts
+|   `-- 03_ml_experiments.ipynb    # scikit-learn prototype on 10% sample
+|-- output/
+|   |-- eda/                       # EDA CSV results
+|   |-- metrics/metrics_summary.json
+|   `-- predictions/               # Sample predictions per model
+|-- models/
+|   |-- random_forest/             # Saved Spark PipelineModel
+|   |-- linear_svc/
+|   `-- naive_bayes/
+|-- main.sh                        # Full pipeline runner
+|-- requirements.txt               # Python dependencies
+`-- .pylintrc                      # Pylint configuration
+\end{lstlisting}
+
+% -------------------- 13. Reproducibility --------------------
+\section{How to Reproduce the Project}
+
+\subsection{Prerequisites}
+
+The following tools are required:
+\begin{itemize}
+    \item Hadoop cluster with YARN;
+    \item PostgreSQL accessible through JDBC;
+    \item Apache Sqoop;
+    \item Apache Hive with Tez;
+    \item Apache Spark 3.x;
+    \item Python environment with the dependencies from \texttt{requirements.txt}.
+\end{itemize}
+
+\subsection{Environment Variables}
+
+\begin{lstlisting}[language=bash,caption={Environment variables}]
+export PG_HOST=localhost
+export PG_PORT=5432
+export PG_DB=sf_incidents
+export PG_USER=postgres
+export PG_PASSWORD=postgres
+export HDFS_BASE=/user/$USER/sf_incidents
+export HIVE_DB=sf_incidents_db
+export SPARK_MASTER=yarn
+export DATA_FILE=data/sf_incidents.csv
+\end{lstlisting}
+
+\subsection{Run Commands}
+
+Before running the pipeline, the dataset file must be placed at \texttt{data/sf\_incidents.csv}.
+
+\begin{lstlisting}[language=bash,caption={Run the full pipeline}]
+bash main.sh
+\end{lstlisting}
+
+Individual stages can also be executed separately:
+
+\begin{lstlisting}[language=bash,caption={Run individual pipeline stages}]
+bash scripts/preprocess.sh   # Create output directories and check tools
+bash scripts/stage1.sh       # PostgreSQL + Sqoop
+bash scripts/stage2.sh       # Hive + EDA
+bash scripts/stage3.sh       # ML training
+bash scripts/stage4.sh       # Dashboard and Superset export
+bash scripts/postprocess.sh  # Output summary
+\end{lstlisting}
+
+% -------------------- 14. Conclusion --------------------
+\section{Conclusion}
+
+This project demonstrates a complete Big Data workflow for processing and analyzing police incident reports. The pipeline starts from a raw CSV file and moves through PostgreSQL, HDFS, Hive, Spark SQL, PySpark MLlib, and dashboard visualization.
+
+The ingestion process proved robust because the PostgreSQL staging pattern handled dirty and inconsistent rows. HDFS, Parquet, and Snappy provided efficient storage for downstream analysis. Spark SQL enabled scalable EDA, while PySpark MLlib made it possible to train and compare multiple classifiers on the full dataset.
+
+The analytical results show strong temporal and spatial patterns. Incidents are concentrated in specific districts and neighborhoods, and they peak during specific hours and days. The ML results show that Random Forest is the best baseline model, but overall classification performance remains limited due to class imbalance and the use of only temporal and spatial features.
+
+% -------------------- 15. Summary of the Report --------------------
+\section{Summary of the Report}
+
+The report described the complete project lifecycle. First, it introduced the problem and business objectives. Then it described the dataset, its main characteristics, quality issues, and target variable distribution. Next, it explained the architecture of the data pipeline, including the input and output of each stage. The report also covered data preparation, PostgreSQL schema design, ER representation, sample database records, Hive table creation, EDA results, chart interpretation, ML modeling, evaluation, dashboard presentation, findings, conclusions, and team contributions.
+
+Overall, the project successfully implemented all required stages: ingestion, storage, analysis, modeling, and presentation.
+
+% -------------------- 16. Reflections --------------------
+\section{Reflections on Own Work}
+
+The project required combining multiple technologies into one reproducible workflow. The team had to connect relational storage, distributed file storage, Hive metadata, Spark processing, machine learning, and dashboard visualization. This helped improve practical understanding of how Big Data systems are integrated in real-world analytical projects.
+
+A key lesson from the project is that data engineering decisions strongly affect the success of later analytical and ML stages. Correct schema design, type handling, file formats, and reproducible scripts were as important as model selection.
+
+\subsection{Challenges and Difficulties}
+
+\begin{enumerate}
+    \item \textbf{Sqoop type mapping.} The cluster's Sqoop 1.4.7 Arenadata edition mapped PostgreSQL time-like types such as \texttt{TIMESTAMP}, \texttt{DATE}, and \texttt{TIME} to INT64 milliseconds in Parquet. The Hive external table therefore had to declare these columns as \texttt{BIGINT}, not \texttt{TIMESTAMP} or \texttt{STRING}. This was discovered by inspecting the Parquet \texttt{\_metadata} file.
+
+    \item \textbf{Hive metastore warehouse location.} Running \texttt{CREATE DATABASE IF NOT EXISTS} does not update the warehouse location if the database already exists with a different \texttt{spark.sql.warehouse.dir}. The solution was to run \texttt{DROP DATABASE CASCADE} at the beginning of each Stage II run.
+
+    \item \textbf{HDFS versus local filesystem.} In PySpark on YARN, \texttt{df.write.csv("output/eda/...")} writes to HDFS by default when a relative path is used. Since Stage IV reads CSV files with Python \texttt{glob}, an explicit \texttt{hdfs dfs -get} step was needed after \texttt{spark-submit}.
+
+    \item \textbf{LinearSVC numerical instability.} The OWLQN optimizer used by LinearSVC frequently reset its optimization history, \texttt{NaNHistory}, during cross-validation, especially with larger regularization values. This did not prevent final convergence but required careful interpretation of logs.
+
+    \item \textbf{Streamlit availability.} Streamlit was not installed on the cluster. Stage IV was therefore implemented as non-fatal: the Superset export ZIP is generated successfully, and a Streamlit launch failure only produces a warning.
+\end{enumerate}
+
+\subsection{Recommendations}
+
+\begin{itemize}
+    \item \textbf{Address class imbalance.} Since \textit{Larceny Theft} dominates the dataset, future work should use class weighting, resampling, or other imbalance-aware methods.
+    \item \textbf{Add richer features.} Additional features such as incident subcategory, neighborhood, holiday indicators, weather, and interaction features could improve classification quality.
+    \item \textbf{Test more advanced models.} Gradient boosting, such as \texttt{pyspark.ml.classification.GBTClassifier}, could be a strong alternative for this tabular and imbalanced dataset.
+    \item \textbf{Improve dashboard deployment.} A containerized Streamlit deployment would make the dashboard easier to run outside the cluster.
+    \item \textbf{Add geographic enrichment.} Joining incidents with external geospatial boundaries could improve hotspot analysis and map visualization.
+\end{itemize}
+
+\subsection{Team Contribution Table}
+
+All project members are from group AI-02. The contribution was divided across data preparation, reporting, pipeline implementation, analysis, machine learning, and visualization.
+
+\begin{longtable}{L{3.7cm} L{10.2cm} L{1.2cm}}
+\caption{Team member contributions}\\
+\toprule
+\textbf{Name} & \textbf{Contribution} & \textbf{} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Name} & \textbf{Contribution} & \textbf{} \\
+\midrule
+\endhead
+Zakirov Karim & Data work: dataset search and preparation, initial analysis, data quality checks, support in EDA, preparation of the final report, and project presentation & \\
+Maksimov Ilya & Architecture and implementation of the Big Data pipeline: PostgreSQL schema and staging table, data loading, Sqoop import to HDFS, Hive table creation, Parquet/Snappy storage, shell-script automation, and infrastructure debugging &  \\
+Gavkovskiy Aleksander & Analytics, machine learning, and visualization: Spark SQL EDA insights, output CSV preparation, PySpark MLlib pipeline, model training, hyperparameter tuning, metric calculation, saved predictions, and Streamlit/Superset dashboard support &  \\
+\bottomrule
+\end{longtable}
+
+% -------------------- References --------------------
+\section*{References}
+\addcontentsline{toc}{section}{References}
+
+\begin{enumerate}
+    \item \href{https://www.kaggle.com/datasets/vivovinco/san-francisco-incident-reports-2018present}{SF PD Incident Reports Dataset --- Kaggle}.
+    \item \href{https://spark.apache.org/docs/latest/ml-guide.html}{Apache Spark MLlib Guide}.
+    \item \href{https://sqoop.apache.org/docs/1.4.7/SqoopUserGuide.html}{Apache Sqoop User Guide}.
+    \item \href{https://cwiki.apache.org/confluence/display/Hive/LanguageManual}{Apache Hive Language Manual}.
+    \item \href{https://docs.streamlit.io}{Streamlit Documentation}.
+    \item \href{https://firas-jolha.github.io/bigdata/html/bs/BS%20-%20Final%20Project.html}{Course Project Requirements}.
+\end{enumerate}
+
+\end{document}
