@@ -495,11 +495,7 @@ This project demonstrates a complete end-to-end big data pipeline from raw CSV i
 - **Richer features** — Adding `incident_subcategory` (encoded), `neighborhood`, and interaction features (latitude × hour) would likely improve model accuracy.
 - **Gradient Boosting** — `pyspark.ml.classification.GBTClassifier` would be a strong alternative to Random Forest for this imbalanced tabular dataset.
 
-### Contribution Table
 
-| Name | Task | % |
-|---|---|---|
-| Ilya Maksimov | Full pipeline: architecture, Stage I–IV, infrastructure, debugging, report | 100% |
 
 ---
 
